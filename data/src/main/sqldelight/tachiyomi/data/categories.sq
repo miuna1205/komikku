@@ -8,12 +8,14 @@ CREATE TABLE categories(
     flags INTEGER NOT NULL,
     manga_order TEXT AS List<Long> NOT NULL,
     -- KMK -->
-    hidden INTEGER NOT NULL DEFAULT 0
+    hidden INTEGER NOT NULL DEFAULT 0,
+    -- 新增：分类的标记/分组，可为空
+    group_tag TEXT
     -- KMK <--
 );
 
 -- Insert system category
-INSERT OR IGNORE INTO categories(_id, name, sort, flags, manga_order, hidden) VALUES (0, "", -1, 0, "", 0);
+INSERT OR IGNORE INTO categories(_id, name, sort, flags, manga_order, hidden, group_tag) VALUES (0, "", -1, 0, "", 0, NULL);
 -- Disallow deletion of default category
 CREATE TRIGGER IF NOT EXISTS system_category_delete_trigger BEFORE DELETE
 ON categories
@@ -24,7 +26,7 @@ BEGIN SELECT CASE
 END;
 
 getCategory:
-SELECT _id,name,sort,flags,hidden
+SELECT _id,name,sort,flags,hidden,group_tag
 FROM categories
 WHERE _id = :id
 LIMIT 1;
@@ -36,7 +38,8 @@ name,
 sort AS `order`,
 flags,
 -- KMK -->
-hidden
+hidden,
+group_tag
 -- KMK <--
 FROM categories
 ORDER BY sort;
@@ -48,7 +51,8 @@ C.name,
 C.sort AS `order`,
 C.flags,
 -- KMK -->
-C.hidden
+C.hidden,
+C.group_tag
 -- KMK <--
 FROM categories C
 JOIN mangas_categories MC
@@ -56,8 +60,8 @@ ON C._id = MC.category_id
 WHERE MC.manga_id = :mangaId;
 
 insert:
-INSERT INTO categories(name, sort, flags, manga_order, hidden)
-VALUES (:name, :order, :flags, "", :hidden);
+INSERT INTO categories(name, sort, flags, manga_order, hidden, group_tag)
+VALUES (:name, :order, :flags, "", :hidden, :groupTag);
 
 delete:
 DELETE FROM categories
@@ -69,8 +73,15 @@ SET name = coalesce(:name, name),
     sort = coalesce(:order, sort),
     flags = coalesce(:flags, flags),
     -- KMK -->
-    hidden = coalesce(:hidden, hidden)
+    hidden = coalesce(:hidden, hidden),
+    group_tag = coalesce(:groupTag, group_tag)
     -- KMK <--
+WHERE _id = :categoryId;
+
+-- 单独设置或清除分类标记（传 NULL 即清除）
+updateGroupTag:
+UPDATE categories
+SET group_tag = :groupTag
 WHERE _id = :categoryId;
 
 updateAllFlags:
@@ -78,4 +89,5 @@ UPDATE categories SET
 flags = coalesce(?, flags);
 
 selectLastInsertedRowId:
+SELECT last_insert_rowid();selectLastInsertedRowId:
 SELECT last_insert_rowid();
