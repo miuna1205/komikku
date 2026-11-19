@@ -1,30 +1,93 @@
-package tachiyomi.domain.category.repository
+package tachiyomi.data.category
 
 import kotlinx.coroutines.flow.Flow
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseHandler
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.model.CategoryUpdate
+import tachiyomi.domain.category.repository.CategoryRepository
 
-interface CategoryRepository {
+class CategoryRepositoryImpl(
+    private val handler: DatabaseHandler,
+) : CategoryRepository {
 
-    suspend fun get(id: Long): Category?
+    override suspend fun get(id: Long): Category? {
+        return handler.awaitOneOrNull { categoriesQueries.getCategory(id, CategoryMapper::mapCategory) }
+    }
 
-    suspend fun getAll(): List<Category>
+    override suspend fun getAll(): List<Category> {
+        return handler.awaitList { categoriesQueries.getCategories(CategoryMapper::mapCategory) }
+    }
 
-    fun getAllAsFlow(): Flow<List<Category>>
+    override fun getAllAsFlow(): Flow<List<Category>> {
+        return handler.subscribeToList { categoriesQueries.getCategories(CategoryMapper::mapCategory) }
+    }
 
-    suspend fun getCategoriesByMangaId(mangaId: Long): List<Category>
+    override suspend fun getCategoriesByMangaId(mangaId: Long): List<Category> {
+        return handler.awaitList {
+            categoriesQueries.getCategoriesByMangaId(mangaId, CategoryMapper::mapCategory)
+        }
+    }
 
-    fun getCategoriesByMangaIdAsFlow(mangaId: Long): Flow<List<Category>>
+    override fun getCategoriesByMangaIdAsFlow(mangaId: Long): Flow<List<Category>> {
+        return handler.subscribeToList {
+            categoriesQueries.getCategoriesByMangaId(mangaId, CategoryMapper::mapCategory)
+        }
+    }
 
     // SY -->
-    suspend fun insert(category: Category): Long
+    override suspend fun insert(category: Category): Long {
+        return handler.awaitOneExecutable(true) {
+            categoriesQueries.insert(
+                name = category.name,
+                order = category.order,
+                flags = category.flags,
+                // KMK -->
+                hidden = if (category.hidden) 1L else 0L,
+                // KMK <--
+            )
+            categoriesQueries.selectLastInsertedRowId()
+        }
+    }
     // SY <--
 
-    suspend fun updatePartial(update: CategoryUpdate)
+    override suspend fun updatePartial(update: CategoryUpdate) {
+        handler.await {
+            updatePartialBlocking(update)
+        }
+    }
 
-    suspend fun updatePartial(updates: List<CategoryUpdate>)
+    override suspend fun updatePartial(updates: List<CategoryUpdate>) {
+        handler.await(inTransaction = true) {
+            for (update in updates) {
+                updatePartialBlocking(update)
+            }
+        }
+    }
 
-    suspend fun updateAllFlags(flags: Long?)
+    private fun Database.updatePartialBlocking(update: CategoryUpdate) {
+        categoriesQueries.update(
+            name = update.name,
+            order = update.order,
+            flags = update.flags,
+            // KMK -->
+            hidden = update.hidden?.let { if (it) 1L else 0L },
+            // KMK <--
+            categoryId = update.id,
+        )
+    }
 
-    suspend fun delete(categoryId: Long)
+    override suspend fun updateAllFlags(flags: Long?) {
+        handler.await {
+            categoriesQueries.updateAllFlags(flags)
+        }
+    }
+
+    override suspend fun delete(categoryId: Long) {
+        handler.await {
+            categoriesQueries.delete(
+                categoryId = categoryId,
+            )
+        }
+    }
 }
