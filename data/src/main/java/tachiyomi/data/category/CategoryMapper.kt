@@ -11,6 +11,8 @@ object CategoryMapper {
         // KMK -->
         hidden: Long,
         // KMK <--
+        // 新增：对应 SELECT 中最后追加的 group_tag 列
+        groupTag: String?,
     ): Category {
         return Category(
             id = id,
@@ -20,6 +22,8 @@ object CategoryMapper {
             // KMK -->
             hidden = hidden == 1L,
             // KMK <--
+            // 新增：映射 groupTag
+            groupTag = groupTag,
         )
     }
 }
