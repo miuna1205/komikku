@@ -90,4 +90,17 @@ class CategoryRepositoryImpl(
             )
         }
     }
+}    override suspend fun updateAllFlags(flags: Long?) {
+        handler.await {
+            categoriesQueries.updateAllFlags(flags)
+        }
+    }
+
+    override suspend fun delete(categoryId: Long) {
+        handler.await {
+            categoriesQueries.delete(
+                categoryId = categoryId,
+            )
+        }
+    }
 }
